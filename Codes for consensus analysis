@@ -1,0 +1,146 @@
+# Set the working directory
+setwd("C:/Users/CAAT_Lab/Vy/BPA low dose")
+getwd()
+
+#Get packages (skip if already installed the package)
+source("https://bioconductor.org/biocLite.R")
+biocLite("GEOquery")
+
+#Install exprso to convert GSE to expression set (not necessary if GSE  is already an expression set)
+install.packages("exprso")
+
+# Install WGCNA package (skip if already have the package)
+source("http://bioconductor.org/biocLite.R") 
+biocLite(c("AnnotationDbi", "impute", "GO.db", "preprocessCore")) 
+install.packages("WGCNA")
+
+#Load required packages 
+source("http://bioconductor.org/biocLite.R") 
+biocLite(c("AnnotationDbi", "impute", "GO.db", "preprocessCore"))  #These packages are required for WGCNA
+library(WGCNA)
+library(Biobase)
+library(GEOquery)
+library(exprso) # Not necessary for this analysis
+library(affy)  # I think affy is not necessary for this analysis
+
+#get GSE dataset: 
+gse = getGEO("GSE50705",  GSEMatrix = TRUE)  #Must set GSEMatrix to TRUE (the default option) to get expression set
+
+#Important line. Do not skip:
+options(stringsAsFactors=FALSE)
+
+#Extracting expression data from GSE:
+gse = gse[[1]]
+genematrix = exprs(gse)
+
+#Subset matrix for BPA and estrogen:
+BPA = genematrix[, 1:84]  #Check GSE website for treatment info
+es = genematrix[, 174:261]
+
+#Filter BPA genes: 
+keepGenesExpr = rank(-rowMeans(BPA))<=10000
+BPA_filtered = BPA[keepGenesExpr,]
+#Filter Estrogen genes: 
+keepGenesExpr0 = rank(-rowMeans(es))<=10000
+es_filtered = es[keepGenesExpr0,]
+
+# We work with two sets:
+nSets = 2;
+# For easier labeling of plots, create a vector holding descriptive names of the two sets.
+setLabels = c("BPA", "Estrogen")
+shortLabels = c("BPA", "Estrogen")
+
+# Form multi-set expression data: 
+multiExpr = vector(mode = "list", length = nSets)
+multiExpr[[1]] = list(data = as.data.frame(t(BPA_filtered)));
+multiExpr[[2]] = list(data = as.data.frame(t(es_filtered)));
+
+# Check that the data has the correct format for many functions operating on multiple sets:
+exprSize = checkSets(multiExpr)
+exprSize
+
+#create a table for phenotyphic data for BPA: 
+BPA_molar = as.list(c(0, 1.00E-06, 1.00E-04, 1.25E-05, 1.56E-08, 2.50E-07, 2.50E-05, 3.13E-06, 5.00E-05, 6.25E-08, 0, 1.00E-06, 1.25E-07, 1.56E-08, 2.50E-07, 2.00E-06, 4.00E-06, 5.00E-07, 6.25E-08, 8.00E-06, 0, 1.00E-06, 1.25E-07, 1.56E-08, 2.50E-07, 2.00E-06, 4.00E-06, 5.00E-07, 6.25E-08, 8.00E-06, 0, 1.56E-06, 1.95E-09, 1.95E-12, 1.00E-06, 1.25E-05, 1.25E-07, 1.56E-08, 2.50E-07, 2.50E-10, 2.50E-05, 3.13E-06, 3.91E-12, 3.13E-08, 3.13E-11, 5.00E-07, 5.00E-05, 6.25E-06, 6.25E-08, 6.25E-11, 7.81E-09, 0, 1.56E-06, 1.95E-09, 1.95E-12, 1.00E-06, 1.25E-05, 1.25E-07, 1.25E-10, 1.56E-08, 2.50E-05, 2.50E-07, 2.50E-10, 3.125E-6, 3.91E-09, 3.13E-08, 3.13E-11, 5.00E-05, 5.00E-07, 5.00E-10, 6.25E-06, 6.25E-08, 7.81E-09, 7.81E-12, 0, 1.95E-09, 1.00E-06, 1.25E-05, 1.56E-08, 2.50E-07, 2.50E-10, 3.12E-06, 5.00E-05, 6.25E-08))
+setSamples_BPA = rownames(multiExpr[[1]]$data)
+Traits_BPA = rbind(setSamples_BPA, BPA_molar)
+
+#create a table for phenotyphic data for Estrogen:
+es_molar = as.list(c(0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-12, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-12, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-12, 8.00E-11, 0, 0, 0, 1.00E-07, 1.00E-07, 1.00E-08, 1.00E-08, 1.00E-08, 1.00E-06, 1.00E-06, 1.00E-06, 1.00E-09, 1.00E-09, 1.00E-09, 8.00E-11, 8.00E-11, 8.00E-11))
+setSamples_es = rownames(multiExpr[[2]]$data)
+Traits_es = rbind(setSamples_es, es_molar)
+
+#We now have the expression data for both sets in the variable multiExpr, and the corresponding clinical traits in the variable Traits.  The last step is to save the relevant data for use in the subsequent analysis:
+save(multiExpr, Traits_BPA, Traits_es, nGenes, nSamples, setLabels, shortLabels, exprSize,
+file = "Consensus-dataInput_06_19_2018.RData");
+ 
+# Check that all genes and samples have sufficiently low numbers of missing values.
+gsg = goodSamplesGenesMS(multiExpr, verbose = 3);
+gsg$allOK
+
+#Check outliers:
+#We now cluster the samples on their Euclidean distance, separately in each set.
+sampleTrees = list()
+for (set in 1:nSets)
+{
+sampleTrees[[set]] = hclust(dist(multiExpr[[set]]$data), method = "average")
+}
+par(mfrow=c(2,1))
+par(mar = c(0, 4, 2, 0))
+for (set in 1:nSets)
+plot(sampleTrees[[set]], main = paste("Sample clustering on all genes in", setLabels[set]),
+xlab="", sub="", cex = 0.7);
+# Choose the "base" cut height for the BPA set
+baseHeight = 95000
+# Adjust the cut height for the BPA data set for the number of samples
+cutHeights = c(95000, 95000*exprSize$nSamples[2]/exprSize$nSamples[1]);
+# Re-plot the dendrograms including the cut lines
+par(mfrow=c(2,1))
+par(mar = c(0, 4, 2, 0))
+for (set in 1:nSets)
+{
+plot(sampleTrees[[set]], main = paste("Sample clustering on all genes in", setLabels[set]),
+xlab="", sub="", cex = 0.7);
+abline(h=cutHeights[set], col = "red");
+}
+
+#Now comes the actual outlier removal:
+for (set in 1:nSets)
+{
+# Find clusters cut by the line
+labels = cutreeStatic(sampleTrees[[set]], cutHeight = cutHeights[set])
+# Keep the largest one (labeled by the number 1)
+keep = (labels==1)
+multiExpr[[set]]$data = multiExpr[[set]]$data[keep, ]
+}
+3
+collectGarbage();
+# Check the size of the leftover data
+exprSize = checkSets(multiExpr)
+exprSize
+
+# One-step network construction and module detection
+# Network construction and consensus module detection
+net = blockwiseConsensusModules(
+multiExpr, power = 10, minModuleSize = 30,  maxBlockSize=10000, deepSplit = 2, #Set maxblocksize to 10000. The default value is 5000). Read the help file of this function for more information about parameter adjustment. 
+pamRespectsDendro = FALSE,
+mergeCutHeight = 0.25, numericLabels = TRUE,
+minKMEtoStay = 0,
+saveTOMs = TRUE, verbose = 5)
+# For now we only need the module labels contained in the component colors, the module eigengenes for each data set contained in multiMEs, and the gene dendrogram (clustering tree) in dendrograms[[1]]:
+
+consMEs = net$multiMEs;
+moduleLabels = net$colors;
+# Convert the numeric labels to color labels
+moduleColors = labels2colors(moduleLabels)
+consTree = net$dendrograms[[1]];
+#Plot it: 
+sizeGrWindow(8,6);
+plotDendroAndColors(consTree, moduleColors,
+"Module colors",
+dendroLabels = FALSE, hang = 0.03,
+addGuide = TRUE, guideHang = 0.05,
+main = "Consensus gene dendrogram and module colors")
+
+#Before we end, we save the information necessary for subsequent analyses
+save(consMEs, moduleLabels, moduleColors, consTree, file = "Consensus-NetworkConstruction-auto-all genes for BPA and Estrogen_06_13_2018.RData")
+
