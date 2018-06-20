@@ -6,23 +6,17 @@ getwd()
 source("https://bioconductor.org/biocLite.R")
 biocLite("GEOquery")
 
-#Install exprso to convert GSE to expression set (not necessary if GSE  is already an expression set)
-install.packages("exprso")
+#Load them: 
+library(Biobase)
+library(GEOquery)
 
 # Install WGCNA package (skip if already have the package)
 source("http://bioconductor.org/biocLite.R") 
 biocLite(c("AnnotationDbi", "impute", "GO.db", "preprocessCore")) 
 install.packages("WGCNA")
-
-#Load required packages 
-source("http://bioconductor.org/biocLite.R") 
-biocLite(c("AnnotationDbi", "impute", "GO.db", "preprocessCore"))  #These packages are required for WGCNA
-library(WGCNA)
-library(Biobase)
-library(GEOquery)
-library(exprso) # Not necessary for this analysis
-library(affy)  # I think affy is not necessary for this analysis
-
+                   ##Then the error namespaceExport(ns, exports) came up. I worked in R instead of R Studio, and saw that
+                   ##the package Stringi was not installed. So I installed it: install.packages("stringi") and load it library(stringi). 
+                   ##Then I reload WGCNA, and voila! It worked!
 #get GSE dataset: 
 gse = getGEO("GSE50705",  GSEMatrix = TRUE)  #Must set GSEMatrix to TRUE (the default option) to get expression set
 
