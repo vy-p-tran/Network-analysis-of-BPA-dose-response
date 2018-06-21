@@ -24,7 +24,7 @@ gse = getGEO("GSE50705",  GSEMatrix = TRUE)  #Must set GSEMatrix to TRUE (the de
 options(stringsAsFactors=FALSE)
 
 #Extracting expression data from GSE:
-gse = gse[[1]]
+gse = gse[[1]] #DO NOT skip this line. Otherwise, the GSE dataset would be downloaded as a large list, which you don't want. 
 genematrix = exprs(gse)
 
 #Subset matrix for BPA and estrogen:
