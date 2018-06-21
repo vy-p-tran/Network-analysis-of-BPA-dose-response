@@ -14,7 +14,7 @@ library(GEOquery)
 source("http://bioconductor.org/biocLite.R") 
 biocLite(c("AnnotationDbi", "impute", "GO.db", "preprocessCore")) 
 install.packages("WGCNA")
-                   ##Then the error namespaceExport(ns, exports) came up. I worked in R instead of R Studio, and saw that
+                   ##Here the error namespaceExport(ns, exports) came up. I worked in R instead of R Studio, and saw that
                    ##the package Stringi was not installed. So I installed it: install.packages("stringi") and load it library(stringi). 
                    ##Then I reload WGCNA, and voila! It worked!
 #get GSE dataset: 
@@ -53,74 +53,131 @@ multiExpr[[2]] = list(data = as.data.frame(t(es_filtered)));
 exprSize = checkSets(multiExpr)
 exprSize
 
-#create a table for phenotyphic data for BPA: 
-BPA_molar = as.list(c(0, 1.00E-06, 1.00E-04, 1.25E-05, 1.56E-08, 2.50E-07, 2.50E-05, 3.13E-06, 5.00E-05, 6.25E-08, 0, 1.00E-06, 1.25E-07, 1.56E-08, 2.50E-07, 2.00E-06, 4.00E-06, 5.00E-07, 6.25E-08, 8.00E-06, 0, 1.00E-06, 1.25E-07, 1.56E-08, 2.50E-07, 2.00E-06, 4.00E-06, 5.00E-07, 6.25E-08, 8.00E-06, 0, 1.56E-06, 1.95E-09, 1.95E-12, 1.00E-06, 1.25E-05, 1.25E-07, 1.56E-08, 2.50E-07, 2.50E-10, 2.50E-05, 3.13E-06, 3.91E-12, 3.13E-08, 3.13E-11, 5.00E-07, 5.00E-05, 6.25E-06, 6.25E-08, 6.25E-11, 7.81E-09, 0, 1.56E-06, 1.95E-09, 1.95E-12, 1.00E-06, 1.25E-05, 1.25E-07, 1.25E-10, 1.56E-08, 2.50E-05, 2.50E-07, 2.50E-10, 3.125E-6, 3.91E-09, 3.13E-08, 3.13E-11, 5.00E-05, 5.00E-07, 5.00E-10, 6.25E-06, 6.25E-08, 7.81E-09, 7.81E-12, 0, 1.95E-09, 1.00E-06, 1.25E-05, 1.56E-08, 2.50E-07, 2.50E-10, 3.12E-06, 5.00E-05, 6.25E-08))
-setSamples_BPA = rownames(multiExpr[[1]]$data)
-Traits_BPA = rbind(setSamples_BPA, BPA_molar)
-
-#create a table for phenotyphic data for Estrogen:
-es_molar = as.list(c(0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-12, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-12, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-12, 8.00E-11, 0, 0, 0, 1.00E-07, 1.00E-07, 1.00E-08, 1.00E-08, 1.00E-08, 1.00E-06, 1.00E-06, 1.00E-06, 1.00E-09, 1.00E-09, 1.00E-09, 8.00E-11, 8.00E-11, 8.00E-11))
-setSamples_es = rownames(multiExpr[[2]]$data)
-Traits_es = rbind(setSamples_es, es_molar)
-
-#We now have the expression data for both sets in the variable multiExpr, and the corresponding clinical traits in the variable Traits.  The last step is to save the relevant data for use in the subsequent analysis:
-save(multiExpr, Traits_BPA, Traits_es, nGenes, nSamples, setLabels, shortLabels, exprSize,
-file = "Consensus-dataInput_06_19_2018.RData");
+##### NOTES: Data set was not filtered for outliers since I haven't figured out a way to match the filtered sample names with the doses in the
+             #phenotype data. Will come back to this later. But I did create a diagnostic dendrogram for the samples, and it appeared that 
+             #there is only 1 outlier for the BPA dataset. Hope this does not cause an impact on the data analysis. 
+             
+###### Here we create a multi-set for the pheotype data. TWO METHODS FOR LOADING PHENOTYPE DATA: 
+ ##   METHOD 1:Extract phenotype data manually from GSE (non-R solution):
+           #•	Google the site for the GSE dataset.
+           #•	Open GEO2R for that dataset
+           #•	Copy and paste info to Excel
+           #•	Copy the column that contains molar concentration
+           #•	Paste the column to this website https://convert.town/column-to-comma-separated-list 
+           #•	Should be able to get a comma-separated list now for R
+           #•	If that doesn’t work, paste the above comma-separated list to Microsoft Word.
+           #•	In Word, press Ctrl-H to open Find and Replace. Find “,” and replace with “, “ to add a space “ “ between values. Should work now.
  
-# Check that all genes and samples have sufficiently low numbers of missing values.
-gsg = goodSamplesGenesMS(multiExpr, verbose = 3);
-gsg$allOK
+           #create a table for phenotyphic data for BPA: 
+           BPA_molar = as.list(c(0, 1.00E-06, 1.00E-04, 1.25E-05, 1.56E-08, 2.50E-07, 2.50E-05, 3.13E-06, 5.00E-05, 6.25E-08, 0, 1.00E-06, 1.25E-07, 1.56E-08, 2.50E-07, 2.00E-06, 4.00E-06, 5.00E-07, 6.25E-08, 8.00E-06, 0, 1.00E-06, 1.25E-07, 1.56E-08, 2.50E-07, 2.00E-06, 4.00E-06, 5.00E-07, 6.25E-08, 8.00E-06, 0, 1.56E-06, 1.95E-09, 1.95E-12, 1.00E-06, 1.25E-05, 1.25E-07, 1.56E-08, 2.50E-07, 2.50E-10, 2.50E-05, 3.13E-06, 3.91E-12, 3.13E-08, 3.13E-11, 5.00E-07, 5.00E-05, 6.25E-06, 6.25E-08, 6.25E-11, 7.81E-09, 0, 1.56E-06, 1.95E-09, 1.95E-12, 1.00E-06, 1.25E-05, 1.25E-07, 1.25E-10, 1.56E-08, 2.50E-05, 2.50E-07, 2.50E-10, 3.125E-6, 3.91E-09, 3.13E-08, 3.13E-11, 5.00E-05, 5.00E-07, 5.00E-10, 6.25E-06, 6.25E-08, 7.81E-09, 7.81E-12, 0, 1.95E-09, 1.00E-06, 1.25E-05, 1.56E-08, 2.50E-07, 2.50E-10, 3.12E-06, 5.00E-05, 6.25E-08))
+           setSamples_BPA = rownames(multiExpr[[1]]$data)
+           Traits_BPA = rbind(setSamples_BPA, BPA_molar)
 
-#Check outliers:
-#We now cluster the samples on their Euclidean distance, separately in each set.
-sampleTrees = list()
-for (set in 1:nSets)
-{
-sampleTrees[[set]] = hclust(dist(multiExpr[[set]]$data), method = "average")
-}
-par(mfrow=c(2,1))
-par(mar = c(0, 4, 2, 0))
-for (set in 1:nSets)
-plot(sampleTrees[[set]], main = paste("Sample clustering on all genes in", setLabels[set]),
-xlab="", sub="", cex = 0.7);
-# Choose the "base" cut height for the BPA set
-baseHeight = 95000
-# Adjust the cut height for the BPA data set for the number of samples
-cutHeights = c(95000, 95000*exprSize$nSamples[2]/exprSize$nSamples[1]);
-# Re-plot the dendrograms including the cut lines
-par(mfrow=c(2,1))
-par(mar = c(0, 4, 2, 0))
-for (set in 1:nSets)
-{
-plot(sampleTrees[[set]], main = paste("Sample clustering on all genes in", setLabels[set]),
-xlab="", sub="", cex = 0.7);
-abline(h=cutHeights[set], col = "red");
-}
+           #create a table for phenotyphic data for Estrogen:
+           es_molar = as.list(c(0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-12, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-12, 8.00E-11, 0, 5.00E-14, 1.00E-13, 5.00E-13, 1.00E-12, 1.00E-11, 1.00E-10, 2.00E-12, 2.00E-11, 4.00E-12, 4.00E-11, 6.00E-12, 6.00E-11, 8.00E-12, 8.00E-11, 0, 0, 0, 1.00E-07, 1.00E-07, 1.00E-08, 1.00E-08, 1.00E-08, 1.00E-06, 1.00E-06, 1.00E-06, 1.00E-09, 1.00E-09, 1.00E-09, 8.00E-11, 8.00E-11, 8.00E-11))
+           setSamples_es = rownames(multiExpr[[2]]$data)
+          Traits_es = rbind(setSamples_es, es_molar)
+#OR 
 
-#Now comes the actual outlier removal:
+ ##   METHOD 2: Use the pData function to read phenotype data (MUCH faster!):
+           #Extract phenodata from GSE (will get a dataframe):
+           phenoData <-pData(gse[1])
+           #Understand the data set:
+           dim(phenoData)
+           
+           #Only subset columns that hold information we need (sample names, treatment names, and molar concentrations).
+           dose = phenoData[ c(1,2, 41)]
+           #See how big the traits are and what are the trait and sample names
+           dim(dose)
+           names(dose)
+           
+           #Create separate dataframes for BPA and ES.
+           doseBPA = dose[1:84, c(0,1,3)] #The row numbers were determined by looking at the "dose" dataframe. 
+           doseES = dose[174:261, c(0,1,3)]
+           
+           #Form a multi-set structure that will hold the pheotype data.
+           nSets = 2
+           Traits = vector(mode="list", length = nSets);
+           Traits[[1]] = list(data = as.data.frame(doseBPA));
+           Traits[[2]] = list(data = as.data.frame(doseES));
+   
+# Now we have the expression data for both sets in the variable multiExpr, and the corresponding clinical traits in the variable Traits. 
+#Should save these objects before continuing. 
+save(multiExpr, Traits, exprSize,
+file = "Consensus-dataInput_06_20_2018.RData");
+
+#### NETWORK TOPOLOGY ANALYSIS: with a soft-thresholding power approach. 
+# Choose a set of soft-thresholding powers
+powers = c(seq(4,10,by=1), seq(12,20, by=2));
+# Initialize a list to hold the results of scale-free analysis
+powerTables = vector(mode = "list", length = nSets);
+# Call the network topology analysis function for each set in turn
 for (set in 1:nSets)
-{
-# Find clusters cut by the line
-labels = cutreeStatic(sampleTrees[[set]], cutHeight = cutHeights[set])
-# Keep the largest one (labeled by the number 1)
-keep = (labels==1)
-multiExpr[[set]]$data = multiExpr[[set]]$data[keep, ]
-}
-3
+powerTables[[set]] = list(data = pickSoftThreshold(multiExpr[[set]]$data, powerVector=powers,
+verbose = 2)[[2]]);
 collectGarbage();
-# Check the size of the leftover data
-exprSize = checkSets(multiExpr)
-exprSize
 
-# One-step network construction and module detection
-# Network construction and consensus module detection
+# Plot the results:
+colors = c("black", "red")
+# Will plot these columns of the returned scale free analysis tables
+plotCols = c(2,5,6,7)
+colNames = c("Scale Free Topology Model Fit", "Mean connectivity", "Median connectivity",
+"Max connectivity");
+
+# Get the minima and maxima of the plotted points
+ylim = matrix(NA, nrow = 2, ncol = 4);
+for (set in 1:nSets)
+{
+for (col in 1:length(plotCols))
+2
+{
+ylim[1, col] = min(ylim[1, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+ylim[2, col] = max(ylim[2, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+}
+}
+# Plot the quantities in the chosen columns vs. the soft thresholding power
+sizeGrWindow(8, 6)
+
+par(mfcol = c(2,2));
+par(mar = c(4.2, 4.2 , 2.2, 0.5))
+cex1 = 0.7;
+for (col in 1:length(plotCols)) for (set in 1:nSets)
+{
+if (set==1)
+{
+plot(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+xlab="Soft Threshold (power)",ylab=colNames[col],type="n", ylim = ylim[, col],
+main = colNames[col]);
+addGrid();
+}
+if (col==1)
+{
+text(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+labels=powers,cex=cex1,col=colors[set]);
+} else
+text(powerTables[[set]]$data[,1], powerTables[[set]]$data[,plotCols[col]],
+labels=powers,cex=cex1,col=colors[set]);
+if (col==1)
+{
+legend("bottomright", legend = setLabels, col = colors, pch = 20) ;
+} else
+legend("topright", legend = setLabels, col = colors, pch = 20) ;
+}
+
+#Pick the most appropritate power based on the above results. 
+
+#### ONE-STEP NETWORK CONSTRUCTION AND MODULE DETECTION:
+
 net = blockwiseConsensusModules(
-multiExpr, power = 10, minModuleSize = 30,  maxBlockSize=10000, deepSplit = 2, #Set maxblocksize to 10000. The default value is 5000). Read the help file of this function for more information about parameter adjustment. 
+multiExpr, power = 10, minModuleSize = 100,  maxBlockSize=10000, deepSplit = 2, #Set maxblocksize to 10000. The default value is 5000).
+#Read the help file of this function for more information about parameter adjustment. 
 pamRespectsDendro = FALSE,
 mergeCutHeight = 0.25, numericLabels = TRUE,
 minKMEtoStay = 0,
 saveTOMs = TRUE, verbose = 5)
-# For now we only need the module labels contained in the component colors, the module eigengenes for each data set contained in multiMEs, and the gene dendrogram (clustering tree) in dendrograms[[1]]:
+
+# For now we only need the module labels contained in the component colors, the module eigengenes for each data set contained in multiMEs, 
+#and the gene dendrogram (clustering tree) in dendrograms[[1]]:
 
 consMEs = net$multiMEs;
 moduleLabels = net$colors;
@@ -136,5 +193,5 @@ addGuide = TRUE, guideHang = 0.05,
 main = "Consensus gene dendrogram and module colors")
 
 #Before we end, we save the information necessary for subsequent analyses
-save(consMEs, moduleLabels, moduleColors, consTree, file = "Consensus-NetworkConstruction-auto-all genes for BPA and Estrogen_06_13_2018.RData")
+save(consMEs, moduleLabels, moduleColors, consTree, file = "Consensus-NetworkConstruction-auto-BPA and Estrogen_06_20_2018.RData")
 
