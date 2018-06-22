@@ -92,8 +92,8 @@ exprSize
            names(dose)
            
            #Create separate dataframes for BPA and ES.
-           doseBPA = dose[1:84, c(0,1,3)] #The row numbers were determined by looking at the "dose" dataframe. 
-           doseES = dose[174:261, c(0,1,3)]
+           doseBPA = dose[1:84, c(3)] #The row numbers were determined by looking at the "dose" dataframe. Only molar concentrations were needed
+           doseES = dose[174:261, c(3)]
            
            #Form a multi-set structure that will hold the pheotype data.
            nSets = 2
@@ -195,3 +195,209 @@ main = "Consensus gene dendrogram and module colors")
 #Before we end, we save the information necessary for subsequent analyses
 save(consMEs, moduleLabels, moduleColors, consTree, file = "Consensus-NetworkConstruction-auto-BPA and Estrogen_06_20_2018.RData")
 
+##### RELATE THE TRAITS TO CONSENSUS MODULE EIGENGENES IN EACH OF THE TWO SETS
+
+# Set up variables to contain the module-trait correlations
+moduleTraitCor = list();
+moduleTraitPvalue = list();
+
+# Calculate the correlations
+for (set in 1:nSets)
+{
+moduleTraitCor[[set]] = cor(consMEs[[set]]$data, Traits[[set]]$data, use = "p");
+moduleTraitPvalue[[set]] = corPvalueFisher(moduleTraitCor[[set]], exprSize$nSamples[set]);
+}
+
+#We now display the module-trait relationships using a color-coded table. We print the correlations and the corresponding p-values, and color-code the entris by the p-value significance.
+
+# Convert numerical lables to colors for labeling of modules in the plot
+MEColors = labels2colors(as.numeric(substring(names(consMEs[[1]]$data), 3)));
+MEColorNames = paste("ME", MEColors, sep="");
+
+# Open a suitably sized window (the user should change the window size if necessary)
+sizeGrWindow(10,7)
+# Plot the module-trait relationship table for set number 1
+set = 1
+textMatrix = paste(signif(moduleTraitCor[[set]], 2), "\n(",
+signif(moduleTraitPvalue[[set]], 1), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor[[set]])
+par(mar = c(6, 8.8, 3, 2.2));
+labeledHeatmap(Matrix = moduleTraitCor[[set]],
+xLabels = names(Traits[[set]]$data),
+yLabels = MEColorNames,
+ySymbols = MEColorNames,
+colorLabels = FALSE,
+colors = greenWhiteRed(50),
+textMatrix = textMatrix,
+setStdMargins = FALSE,
+cex.text = 0.5,
+zlim = c(-1,1),
+main = paste("Module--trait relationships in", setLabels[set]))
+
+# Plot the module-trait relationship table for set number 2
+set = 2
+textMatrix = paste(signif(moduleTraitCor[[set]], 2), "\n(",
+signif(moduleTraitPvalue[[set]], 1), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor[[set]])
+sizeGrWindow(10,7)
+#pdf(file = "Plots/ModuleTraitRelationships-male.pdf", wi = 10, he = 7);
+par(mar = c(6, 8.8, 3, 2.2));
+labeledHeatmap(Matrix = moduleTraitCor[[set]],
+xLabels = names(Traits[[set]]$data),
+yLabels = MEColorNames,
+ySymbols = MEColorNames,
+colorLabels = FALSE,
+colors = greenWhiteRed(50),
+textMatrix = textMatrix,
+setStdMargins = FALSE,
+cex.text = 0.5,
+zlim = c(-1,1),
+main = paste("Module--trait relationships in", setLabels[set]))
+
+#There are several ways of forming a measure of module-trait relationships that summarizes the two sets into one measure. 
+
+# Initialize matrices to hold the consensus correlation and p-value
+consensusCor = matrix(NA, nrow(moduleTraitCor[[1]]), ncol(moduleTraitCor[[1]]));
+consensusPvalue = matrix(NA, nrow(moduleTraitCor[[1]]), ncol(moduleTraitCor[[1]]));
+
+# Find consensus negative correlations
+negative = moduleTraitCor[[1]] < 0 & moduleTraitCor[[2]] < 0;
+consensusCor[negative] = pmax(moduleTraitCor[[1]][negative], moduleTraitCor[[2]][negative]);
+consensusPvalue[negative] = pmax(moduleTraitPvalue[[1]][negative], moduleTraitPvalue[[2]][negative]);
+
+# Find consensus positive correlations
+positive = moduleTraitCor[[1]] > 0 & moduleTraitCor[[2]] > 0;
+consensusCor[positive] = pmin(moduleTraitCor[[1]][positive], moduleTraitCor[[2]][positive]);
+consensusPvalue[positive] = pmax(moduleTraitPvalue[[1]][positive], moduleTraitPvalue[[2]][positive]);
+
+#We display the consensus module–trait relationships again using a color-coded table:
+textMatrix = paste(signif(consensusCor, 2), "\n(",
+signif(consensusPvalue, 1), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor[[set]])
+sizeGrWindow(10,7)
+#pdf(file = "Plots/ModuleTraitRelationships-consensus.pdf", wi = 10, he = 7);
+par(mar = c(6, 8.8, 3, 2.2));
+labeledHeatmap(Matrix = consensusCor,
+xLabels = names(Traits[[set]]$data),
+yLabels = MEColorNames,
+ySymbols = MEColorNames,
+colorLabels = FALSE,
+colors = greenWhiteRed(50),
+textMatrix = textMatrix,
+setStdMargins = FALSE,
+cex.text = 0.5,
+zlim = c(-1,1),
+main = paste("Consensus module--trait relationships across\n",
+paste(setLabels, collapse = " and ")))
+##Missing (NA) entries indicate that the correlations in the male and female data sets have opposite signs and no consensus can be formed.
+
+#### EXPORTING RESULTS OF NETWORK ANALYSIS.
+
+#First, we can convert probe IDs to official gene symbols for easy annotation in Enrichr.
+  ##METHOD 1: Use biomaRt to convert Affymatrix gene IDs to Official Gene Symbols. 
+    
+    #Download the biomaRt package:
+     source("https://bioconductor.org/biocLite.R")
+     biocLite("biomaRt")
+     
+    #Load the package and view the user manual:
+     library(biomaRt)
+     browseVignettes("biomaRt")
+    
+    #Choose which database to use:
+     mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
+     
+    #Based on the website for the GSE50705 dataset, the platform is Affymetrix Human Genome U133 Plus 2.0 Array. Once this is known,
+    #you can use the listAttributes() function to find the right name for the Affymetrix Human Genome U133 Plus 2.0 Array in biomaRt.
+    listAttributes()
+    
+    #Extract Affymetrix IDs from the multi-set data:
+    probes = names(multiExpr[[1]]$data)
+    
+    #Now Affymetrix probe IDs can be converted to official gene symbols with the function getBM():
+    officialID = getBM(filters = "affy_hg_u133_plus_2", 
+                       attributes = c("affy_hg_u133_plus_2","hgnc_symbol"),
+                       values = probes, mart = mart)
+
+    show(officialID)
+    #THE PROBLEM WITH THIS METHOD is that one Affymetrix ID can results in multiple gene symbols, which prevents creation of a data frame
+    #during data analysis export. Therefore, I decided to use the second method with limma
+    
+  ##METHOD 2: use the manufactorer's annotation database with limma
+  
+    #Load the limma package:
+     library(limma)
+     
+    #Installing annotation packages. The appropriate packages for the specific Affymetrix platform can be found on Bioconductor: 
+     source("https://bioconductor.org/biocLite.R")
+     biocLite("hgu133plus2cdf")
+     library(hgu133plus2cdf)
+
+     source("https://bioconductor.org/biocLite.R")
+     biocLite("hgu133plus2.db")
+     library(hgu133plus2.db)
+     
+    #Get gene symbols. Multiple entries will be collapsed and separated by semicolons, e.g. if geneID 001 corresponds to gene names 
+    #"Name1" and "Name2", these will be collapsed into "Name1; Name2":
+     probes = names(multiExpr[[1]]$data)
+     geneSymbols <- as.character(unlist(lapply(mget(probes,env=hgu133plus2SYMBOL),
+     function (symbol) { return(paste(symbol,collapse="; ")) } )))
+    
+    #Cross reference with the bioMart method to make sure that the conversion is correct. 
+
+##### WE NOW PUT TOGETHER A DATA FRAME THAT SUMMARIZES THE RESULTS OF NETWORK ANALYSIS:
+
+#First, we need to (re-)calculate the module eigengenes in the ”alphabetic” order and calculate the gene significances and module 
+#memberships in each data set.
+consMEs.unord = multiSetMEs(multiExpr, universalColors = moduleLabels, excludeGrey = TRUE)
+GS = list();
+kME = list();
+for (set in 1:nSets)
+{
+GS[[set]] = corAndPvalue(multiExpr[[set]]$data, Traits[[set]]$data);
+kME[[set]] = corAndPvalue(multiExpr[[set]]$data, consMEs.unord[[set]]$data);
+}
+
+#Next, we perform a very simple ”meta-analysis” by combining the Z scores of correlations from each set to form a meta-Z score and the corresponding p-value.
+GS.metaZ = (GS[[1]]$Z + GS[[2]]$Z)/sqrt(2);
+kME.metaZ = (kME[[1]]$Z + kME[[2]]$Z)/sqrt(2);
+GS.metaP = 2*pnorm(abs(GS.metaZ), lower.tail = FALSE);
+kME.metaP = 2*pnorm(abs(kME.metaZ), lower.tail = FALSE);
+
+#We form matrices holding the GS and kME. We use a simple re-shaping trick to put the values and the associated p-values and 
+#meta-analysis results next to one another.
+
+# Define data set dimensions
+nGenes = exprSize$nGenes;
+nSamples = exprSize$nSamples;
+
+#Now actual formming of the matrices holding the GS and kME
+GSmat = rbind(GS[[1]]$cor, GS[[2]]$cor, GS[[1]]$p, GS[[2]]$p, GS.metaZ, GS.metaP);
+nTraits = checkSets(Traits)$nGenes
+traitNames = colnames(Traits[[1]]$data)
+dim(GSmat) = c(nGenes, 6*nTraits)
+rownames(GSmat) = probes;
+colnames(GSmat) = spaste(
+c("GS.set1.", "GS.set2.", "p.GS.set1.", "p.GS.set2.", "Z.GS.meta.", "p.GS.meta"),
+rep(traitNames, rep(6, nTraits)))
+
+# Same code for kME:
+kMEmat = rbind(kME[[1]]$cor, kME[[2]]$cor, kME[[1]]$p, kME[[2]]$p, kME.metaZ, kME.metaP);
+MEnames = colnames(consMEs.unord[[1]]$data);
+nMEs = checkSets(consMEs.unord)$nGenes
+dim(kMEmat) = c(nGenes, 6*nMEs)
+rownames(kMEmat) = probes;
+colnames(kMEmat) = spaste(
+c("kME.set1.", "kME.set2.", "p.kME.set1.", "p.kME.set2.", "Z.kME.meta.", "p.kME.meta"),
+rep(MEnames, rep(6, nMEs)))
+
+#Finally we put together the full information data frame and write it into a plain text CSV file that can be read by 
+#standard spreadsheet programs.
+
+info = data.frame(Probe = probes, OfficialGeneSymbols = geneSymbols,
+ModuleLabel = moduleLabels,
+ModuleColor = labels2colors(moduleLabels),
+GSmat,
+kMEmat);
+write.csv(info, file = "consensusAnalysis-CombinedNetworkResults_With_Gene_Symbols.csv",
+row.names = FALSE, quote = FALSE);
